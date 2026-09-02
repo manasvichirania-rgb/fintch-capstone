@@ -1,0 +1,5 @@
+tier,probability_range,applicants,avg_predicted_proba,observed_default_rate,illustrative_rate
+Low Risk,0.005 - 0.036,25,0.02017213529941546,0.08,10-12%
+Moderate Risk,0.036 - 0.146,25,0.07304345383517159,0.12,12-15%
+High Risk,0.152 - 0.340,25,0.2340279569105914,0.2,15-19%
+Very High Risk,0.354 - 0.947,25,0.5876126835351317,0.4,19-25%
