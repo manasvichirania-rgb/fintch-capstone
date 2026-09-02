@@ -1,0 +1,52 @@
+================================================================================
+RECONCILIATION RESULTS: ledger.csv vs gateway_export.csv
+================================================================================
+Ledger row count: 547
+Gateway export row count: 530
+
+1. Missing in gateway (present in ledger, absent from gateway): 27 rows (4.9% of ledger)
+2. Extra in gateway (present in gateway, absent from ledger): 10 rows (1.8% of ledger)
+3. Amount mismatches (same transaction_id, different amount_inr): 16 rows (2.9% of ledger)
+4. Status mismatches (same transaction_id, different status): 9 rows (1.6% of ledger)
+
+Expected injection rates from generate_data.py: ~5% missing, ~3% amount mismatch, ~2% extra, ~2% status mismatch (each computed on the 547-row ledger). Measured counts above should be close to these rates; minor differences can occur where an injected amount-mismatch or status-flip landed on a row that was also dropped in the missing-transaction step.
+
+--------------------------------------------------------------------------------
+Sample: missing_in_gateway (first 5)
+--------------------------------------------------------------------------------
+transaction_id  user_id  merchant_id    transaction_time  amount_inr payment_method   status  risk_score
+     TXN100000      350           16 2026-01-29 11:13:00        2999         Wallet captured          85
+     TXN100005      196            3 2026-01-06 22:06:00          99            UPI captured          60
+     TXN100036      321           16 2026-01-25 16:31:00          49            UPI captured          35
+     TXN100044      309           15 2026-01-24 23:34:00          99     Netbanking captured          62
+     TXN100056      132           24 2026-01-07 14:44:00         299         Wallet captured          21
+
+--------------------------------------------------------------------------------
+Sample: extra_in_gateway (first 5)
+--------------------------------------------------------------------------------
+transaction_id  user_id  merchant_id    transaction_time  amount_inr payment_method   status  risk_score
+      TXNX9000      262           25 2026-01-14 00:00:00         149     Netbanking captured          54
+      TXNX9001       96           32 2026-01-21 00:00:00        4999         Wallet captured          71
+      TXNX9002       86           32 2026-01-10 00:00:00         149         Wallet captured          40
+      TXNX9003      231           40 2026-01-02 00:00:00         799            UPI captured          62
+      TXNX9004       70           13 2026-01-27 00:00:00        1499     Netbanking captured          52
+
+--------------------------------------------------------------------------------
+Sample: amount_mismatches (first 5)
+--------------------------------------------------------------------------------
+transaction_id  amount_inr_ledger  amount_inr_gateway  amount_difference_inr
+     TXN100011               2999                2949                    -50
+     TXN100019                 49                  99                     50
+     TXN100039               1499                1399                   -100
+     TXN100204                 49                 -51                   -100
+     TXN100218                 49                  -1                    -50
+
+--------------------------------------------------------------------------------
+Sample: status_mismatches (first 5)
+--------------------------------------------------------------------------------
+transaction_id status_ledger status_gateway
+     TXN100042      captured         failed
+     TXN100215      captured         failed
+     TXN100267      captured         failed
+     TXN100300      captured         failed
+     TXN100392      captured         failed

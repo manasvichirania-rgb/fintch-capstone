@@ -1,0 +1,258 @@
+==========================================================================================
+QUERY 1 - Chargeback impact
+==========================================================================================
+
+SQL:
+SELECT
+            COUNT(*)                       AS chargeback_txn_count,
+            COUNT(DISTINCT user_id)        AS unique_users_affected,
+            SUM(amount_inr)                AS total_chargeback_amount_inr
+        FROM transactions
+        WHERE status = 'chargeback'
+
+Rows returned: 1
+ chargeback_txn_count  unique_users_affected  total_chargeback_amount_inr
+                   28                     27                        54472
+
+==========================================================================================
+QUERY 2 - Burner accounts (0 <= account age days < 30, chargeback only)
+==========================================================================================
+
+SQL:
+SELECT
+            t.transaction_id,
+            t.user_id,
+            u.signup_date,
+            t.transaction_time,
+            CAST(julianday(t.transaction_time) - julianday(u.signup_date) AS INTEGER) AS account_age_days,
+            t.amount_inr,
+            t.status
+        FROM transactions t
+        INNER JOIN users u ON t.user_id = u.user_id
+        WHERE t.status = 'chargeback'
+            AND julianday(t.transaction_time) - julianday(u.signup_date) >= 0
+            AND julianday(t.transaction_time) - julianday(u.signup_date) < 30
+        ORDER BY account_age_days ASC
+
+Rows returned: 15
+transaction_id  user_id         signup_date    transaction_time  account_age_days  amount_inr     status
+     TXN200006      357 2026-01-19 11:00:00 2026-01-23 11:00:00                 4        1999 chargeback
+     TXN200008      359 2026-01-18 22:00:00 2026-01-25 22:00:00                 7        2999 chargeback
+     TXN200010      361 2026-01-11 07:00:00 2026-01-20 07:00:00                 9        4999 chargeback
+     TXN200001      352 2025-12-31 12:00:00 2026-01-11 12:00:00                11        4999 chargeback
+     TXN200002      353 2026-01-10 14:00:00 2026-01-21 14:00:00                11        1999 chargeback
+     TXN200004      355 2026-01-05 12:00:00 2026-01-16 12:00:00                11        4999 chargeback
+     TXN200005      356 2026-01-18 07:00:00 2026-01-29 07:00:00                11        2999 chargeback
+     TXN200000      351 2026-01-15 06:00:00 2026-01-30 06:00:00                15        1999 chargeback
+     TXN200011      362 2026-01-08 02:00:00 2026-01-23 02:00:00                15        4999 chargeback
+     TXN200012      363 2026-01-06 17:00:00 2026-01-23 17:00:00                17         999 chargeback
+     TXN200013      364 2026-01-04 22:00:00 2026-01-22 22:00:00                18         999 chargeback
+     TXN200007      358 2026-01-06 05:00:00 2026-01-28 05:00:00                22         999 chargeback
+     TXN200009      360 2025-12-22 13:00:00 2026-01-13 13:00:00                22        1999 chargeback
+     TXN200014      365 2025-12-27 21:00:00 2026-01-18 21:00:00                22        1999 chargeback
+     TXN200003      354 2025-12-29 19:00:00 2026-01-21 19:00:00                23        4999 chargeback
+
+==========================================================================================
+QUERY 3 - Velocity attacks (3+ txns in any 10-minute bucket)
+==========================================================================================
+
+SQL:
+SELECT
+            user_id,
+            time_bucket,
+            COUNT(*)                            AS txns_in_window,
+            MIN(transaction_time)               AS cluster_start,
+            GROUP_CONCAT(transaction_id)        AS transaction_ids
+        FROM (
+            SELECT
+                transaction_id,
+                user_id,
+                transaction_time,
+                CAST(strftime('%s', transaction_time) AS INTEGER) / 600 AS time_bucket
+            FROM transactions
+        ) bucketed
+        GROUP BY user_id, time_bucket
+        HAVING COUNT(*) >= 3
+        ORDER BY cluster_start ASC
+
+Rows returned: 8
+ user_id  time_bucket  txns_in_window       cluster_start                         transaction_ids
+     200      2945508               4 2026-01-01 22:00:00 TXN300020,TXN300021,TXN300022,TXN300023
+     314      2945628               4 2026-01-02 18:00:00 TXN300000,TXN300001,TXN300002,TXN300003
+     154      2945652               4 2026-01-02 22:00:00 TXN300012,TXN300013,TXN300014,TXN300015
+      59      2946654               4 2026-01-09 21:00:00 TXN300024,TXN300025,TXN300026,TXN300027
+      73      2947014               4 2026-01-12 09:00:00 TXN300008,TXN300009,TXN300010,TXN300011
+     229      2947032               4 2026-01-12 12:00:00 TXN300004,TXN300005,TXN300006,TXN300007
+     287      2947332               4 2026-01-14 14:00:00 TXN300016,TXN300017,TXN300018,TXN300019
+     345      2948598               4 2026-01-23 09:00:00 TXN300028,TXN300029,TXN300030,TXN300031
+
+==========================================================================================
+QUERY 4 - Top 10 merchants by GMV (LEFT JOIN)
+==========================================================================================
+
+SQL:
+SELECT
+            m.merchant_id,
+            m.merchant_name,
+            m.category,
+            m.region,
+            COUNT(t.transaction_id)    AS transaction_count,
+            SUM(t.amount_inr)          AS total_gmv_inr
+        FROM merchants m
+        LEFT JOIN transactions t ON m.merchant_id = t.merchant_id
+        GROUP BY m.merchant_id, m.merchant_name, m.category, m.region
+        ORDER BY total_gmv_inr DESC
+        LIMIT 10
+
+Rows returned: 10
+ merchant_id merchant_name      category region  transaction_count  total_gmv_inr
+          39  Merchant_039 entertainment  North                 13          22687
+          13  Merchant_013        travel   East                 12          18388
+           7  Merchant_007 food_delivery   East                 16          15934
+          25  Merchant_025        travel  South                 17          15533
+          27  Merchant_027     ecommerce  North                 16          13584
+          10  Merchant_010       grocery   West                 14          13086
+          29  Merchant_029     ecommerce  North                 19          13081
+          17  Merchant_017       grocery  North                 13          13037
+          37  Merchant_037 entertainment  South                 19          12931
+          19  Merchant_019       grocery  North                 14          12836
+
+==========================================================================================
+QUERY 5 - Merchants with unusually high chargeback counts
+==========================================================================================
+
+SQL:
+SELECT
+            merchant_id,
+            COUNT(*) AS chargeback_count
+        FROM transactions
+        WHERE status = 'chargeback'
+        GROUP BY merchant_id
+        HAVING COUNT(*) >= 2
+        ORDER BY chargeback_count DESC
+
+Rows returned: 5
+ merchant_id  chargeback_count
+          39                 3
+          29                 3
+          27                 3
+          40                 2
+          10                 2
+
+==========================================================================================
+QUERY 6a - DISTINCT payment methods among high-risk (risk_score >= 80) txns
+==========================================================================================
+
+SQL:
+SELECT DISTINCT payment_method
+        FROM transactions
+        WHERE risk_score >= 80
+
+Rows returned: 4
+payment_method
+        Wallet
+    Netbanking
+           UPI
+          Card
+
+==========================================================================================
+QUERY 6b - 15 most recent high-risk transactions (risk_score >= 80)
+==========================================================================================
+
+SQL:
+SELECT
+            transaction_id, user_id, merchant_id, transaction_time,
+            amount_inr, payment_method, status, risk_score
+        FROM transactions
+        WHERE risk_score >= 80
+        ORDER BY transaction_time DESC
+        LIMIT 15
+
+Rows returned: 15
+transaction_id  user_id  merchant_id    transaction_time  amount_inr payment_method     status  risk_score
+     TXN100145      119           30 2026-01-30 18:09:00          49           Card   captured          81
+     TXN100480      197            9 2026-01-29 17:21:00          49         Wallet     failed          88
+     TXN100003       92           22 2026-01-29 13:01:00          49     Netbanking   captured         100
+     TXN100000      350           16 2026-01-29 11:13:00        2999         Wallet   captured          85
+     TXN200005      356           25 2026-01-29 07:00:00        2999           Card chargeback          96
+     TXN100389       19           26 2026-01-29 05:59:00          49            UPI   captured         100
+     TXN100321      159           26 2026-01-29 02:04:00          99            UPI   captured          91
+     TXN200007      358           36 2026-01-28 05:00:00         999           Card chargeback         100
+     TXN100068      231           16 2026-01-27 02:17:00          49            UPI   captured          96
+     TXN100315      164           23 2026-01-26 21:54:00          49     Netbanking   captured          90
+     TXN100264      100           24 2026-01-26 15:57:00         299            UPI   captured          86
+     TXN100378       22           19 2026-01-26 04:18:00          49           Card   captured          91
+     TXN200008      359           29 2026-01-25 22:00:00        2999           Card chargeback          96
+     TXN100235      297           29 2026-01-25 18:48:00          99           Card chargeback          87
+     TXN100406      341           14 2026-01-25 17:51:00          99     Netbanking   captured          97
+
+==========================================================================================
+QUERY 7 - Users with more than one distinct transaction status
+==========================================================================================
+
+SQL:
+SELECT
+            t.user_id,
+            COUNT(DISTINCT t.status)   AS distinct_statuses,
+            GROUP_CONCAT(DISTINCT t.status) AS statuses_seen,
+            COUNT(*)                  AS total_txns
+        FROM transactions t
+        INNER JOIN users u ON t.user_id = u.user_id
+        GROUP BY t.user_id
+        HAVING COUNT(DISTINCT t.status) > 1
+        ORDER BY total_txns DESC
+        LIMIT 15
+
+Rows returned: 15
+ user_id  distinct_statuses              statuses_seen  total_txns
+     154                  2            captured,failed           8
+      59                  2            captured,failed           8
+     287                  2            captured,failed           7
+     345                  2            captured,failed           5
+     314                  3 chargeback,failed,captured           5
+     306                  2            failed,captured           5
+     231                  2            captured,failed           5
+     229                  2            captured,failed           5
+     211                  2        captured,chargeback           5
+     200                  2            captured,failed           5
+     338                  2        chargeback,captured           4
+     288                  2            failed,captured           4
+     186                  2            failed,captured           4
+     152                  2        captured,chargeback           4
+      73                  2            failed,captured           4
+
+==========================================================================================
+QUERY 8 - GMV and average ticket size by merchant category
+==========================================================================================
+
+SQL:
+SELECT
+            m.category,
+            COUNT(t.transaction_id)  AS transaction_count,
+            SUM(t.amount_inr)        AS category_gmv_inr,
+            ROUND(AVG(t.amount_inr), 2) AS avg_txn_amount_inr
+        FROM transactions t
+        INNER JOIN merchants m ON t.merchant_id = m.merchant_id
+        GROUP BY m.category
+        ORDER BY category_gmv_inr DESC
+
+Rows returned: 7
+     category  transaction_count  category_gmv_inr  avg_txn_amount_inr
+    ecommerce                104             79896              768.23
+       travel                100             75250              752.50
+      grocery                114             71936              631.02
+food_delivery                 95             57205              602.16
+entertainment                 63             56887              902.97
+ bill_payment                 46             26304              571.83
+     recharge                 25             15125              605.00
+
+==========================================================================================
+Fraud pattern check
+==========================================================================================
+Seeded burner rows (TXN2xxxxx) in ledger: 15
+Burner query (Query 2) rows returned: 15
+All 15 seeded burner rows surfaced: True
+
+Seeded velocity clusters (distinct victim users, TXN3xxxxx): 8
+Velocity query (Query 3) qualifying (user, bucket) groups: 8
+All 8 seeded victim users appear as qualifying groups: True
