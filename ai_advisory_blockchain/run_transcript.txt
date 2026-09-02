@@ -1,0 +1,220 @@
+
+##########################################################################################
+# PART A -- advisory_agent.py (all 5 investor profiles)
+##########################################################################################
+
+MOCK_LLM mode: True (MOCK_LLM env var = <unset>)
+
+==========================================================================================
+Investor INV01 (Conservative)
+==========================================================================================
+  Allocation: PAYBOND (33.33%), PAYGOLD (33.33%), PAYRETAIL (33.33%)
+  Per-stock CAPM expected return: PAYBOND=7.30%, PAYGOLD=8.20%, PAYRETAIL=12.10%
+  Portfolio expected return: 9.20%
+  Portfolio variance: 0.007122
+  Portfolio std dev: 8.44%
+  Status: finalized (portfolio std dev 8.44% <= 20%)
+  Narrative: For Conservative investor INV01, we recommend an allocation across PAYBOND, PAYGOLD, PAYRETAIL with an expected portfolio return of 9.2% and volatility of 8.4%.
+
+==========================================================================================
+Investor INV02 (Moderate)
+==========================================================================================
+  Allocation: PAYRETAIL (33.33%), PAYINFRA (33.33%), PAYGOLD (33.33%)
+  Per-stock CAPM expected return: PAYRETAIL=12.10%, PAYINFRA=13.60%, PAYGOLD=8.20%
+  Portfolio expected return: 11.30%
+  Portfolio variance: 0.015802
+  Portfolio std dev: 12.57%
+  Status: finalized (portfolio std dev 12.57% <= 20%)
+  Narrative: For Moderate investor INV02, we recommend an allocation across PAYRETAIL, PAYINFRA, PAYGOLD with an expected portfolio return of 11.3% and volatility of 12.6%.
+
+==========================================================================================
+Investor INV03 (Aggressive)
+==========================================================================================
+  Allocation: PAYTECH (33.33%), PAYFIN (33.33%), PAYINFRA (33.33%)
+  Per-stock CAPM expected return: PAYTECH=16.30%, PAYFIN=15.10%, PAYINFRA=13.60%
+  Portfolio expected return: 15.00%
+  Portfolio variance: 0.042373
+  Portfolio std dev: 20.58%
+  >>> ESCALATED_TO_HUMAN_ADVISOR (portfolio std dev 20.58% > 20%)
+  Narrative: For Aggressive investor INV03, we recommend an allocation across PAYTECH, PAYFIN, PAYINFRA with an expected portfolio return of 15.0% and volatility of 20.6%.
+
+==========================================================================================
+Investor INV04 (Moderate)
+==========================================================================================
+  Allocation: PAYRETAIL (33.33%), PAYINFRA (33.33%), PAYGOLD (33.33%)
+  Per-stock CAPM expected return: PAYRETAIL=12.10%, PAYINFRA=13.60%, PAYGOLD=8.20%
+  Portfolio expected return: 11.30%
+  Portfolio variance: 0.015802
+  Portfolio std dev: 12.57%
+  Status: finalized (portfolio std dev 12.57% <= 20%)
+  Narrative: For Moderate investor INV04, we recommend an allocation across PAYRETAIL, PAYINFRA, PAYGOLD with an expected portfolio return of 11.3% and volatility of 12.6%.
+
+==========================================================================================
+Investor INV05 (Aggressive)
+==========================================================================================
+  Allocation: PAYTECH (33.33%), PAYFIN (33.33%), PAYINFRA (33.33%)
+  Per-stock CAPM expected return: PAYTECH=16.30%, PAYFIN=15.10%, PAYINFRA=13.60%
+  Portfolio expected return: 15.00%
+  Portfolio variance: 0.042373
+  Portfolio std dev: 20.58%
+  >>> ESCALATED_TO_HUMAN_ADVISOR (portfolio std dev 20.58% > 20%)
+  Narrative: For Aggressive investor INV05, we recommend an allocation across PAYTECH, PAYFIN, PAYINFRA with an expected portfolio return of 15.0% and volatility of 20.6%.
+
+==========================================================================================
+SUMMARY: escalation pattern across all 5 investors
+==========================================================================================
+  INV01 (Conservative) std=8.44%  ->  no escalation
+  INV02 (Moderate    ) std=12.57%  ->  no escalation
+  INV03 (Aggressive  ) std=20.58%  ->  ESCALATE
+  INV04 (Moderate    ) std=12.57%  ->  no escalation
+  INV05 (Aggressive  ) std=20.58%  ->  ESCALATE
+
+
+##########################################################################################
+# PART B -- extract_disclosure.py (all 6 disclosure snippets)
+##########################################################################################
+
+MOCK_LLM mode: True
+
+==========================================================================================
+doc_01
+==========================================================================================
+  Text: doc_01: Assuming input costs remain stable through the next two quarters, we expect margins to hold at current levels.
+  risk_flags:       []
+  hedging_detected: True
+  sentiment:        cautious
+
+==========================================================================================
+doc_02
+==========================================================================================
+  Text: doc_02: The company faces an ongoing litigation matter related to a former vendor contract; management believes the exposure is not material.
+  risk_flags:       ['litigation']
+  hedging_detected: False
+  sentiment:        neutral
+
+==========================================================================================
+doc_03
+==========================================================================================
+  Text: doc_03: Our top three customers together account for approximately 42 percent of total revenue this year.
+  risk_flags:       ['customer_concentration']
+  hedging_detected: False
+  sentiment:        neutral
+
+==========================================================================================
+doc_04
+==========================================================================================
+  Text: doc_04: We remain cautiously optimistic about demand recovery, though visibility beyond the next quarter is limited given macro uncertainty.
+  risk_flags:       []
+  hedging_detected: True
+  sentiment:        cautious
+
+==========================================================================================
+doc_05
+==========================================================================================
+  Text: doc_05: The board is confident in the long-term strategy and has approved an expanded capital expenditure plan for the coming year.
+  risk_flags:       []
+  hedging_detected: False
+  sentiment:        confident
+
+==========================================================================================
+doc_06
+==========================================================================================
+  Text: doc_06: A recent regulatory notice has been received regarding data-localization compliance; the company is in active dialogue with the regulator.
+  risk_flags:       ['regulatory']
+  hedging_detected: False
+  sentiment:        neutral
+
+==========================================================================================
+ACCEPTANCE-CRITERIA SPOT CHECK
+==========================================================================================
+doc_02 flags litigation:              True
+doc_03 flags customer_concentration:  True
+doc_04 hedging_detected == True:      True
+doc_05 sentiment == 'confident':      True
+doc_06 flags regulatory:              True
+At least one snippet hedging_detected: True
+
+
+##########################################################################################
+# PART C -- debate.py (3-agent bull/bear/synthesizer)
+##########################################################################################
+
+MOCK_LLM mode: True
+Debate ticker: PAYFIN  (beta=1.35, analyst_expected_return=0.16, std_dev=0.28)
+
+BULL on PAYFIN: With an expected return of 16.0% against a beta of 1.35, this offers attractive risk-adjusted upside relative to lower-beta names in the universe -- PAYFIN is priced to reward investors who can tolerate above-market volatility.
+
+BEAR on PAYFIN: A standard deviation of 28.0% combined with a beta of 1.35 means PAYFIN will amplify market drawdowns, not just rallies -- in a risk-off scenario this is one of the first names to give back its expected-return premium, and the volatility alone could breach a conservative investor's risk budget.
+
+SYNTHESIZER: PAYFIN's 16.0% expected return and 1.35 beta make the bull case real, but its 28.0% standard deviation makes the bear case just as real -- this is a name suited to investors with a longer horizon and higher risk tolerance, not a core holding for a conservative allocation.
+
+
+##########################################################################################
+# PART D -- dcf_calculator.py (base case + sensitivity + EV/EBITDA)
+##########################################################################################
+
+==========================================================================================
+STEP 1 -- Base-year unlevered FCFF
+==========================================================================================
+EBIT: INR 120.0 crore | Tax rate: 25% | D&A: INR 20.0 crore | CapEx: INR 35.0 crore | ChangeNWC: INR 10.0 crore
+FCFF = EBIT*(1-tax) + D&A - CapEx - ChangeNWC = 120.0*(1-0.25) + 20.0 - 35.0 - 10.0 = INR 65.00 crore
+
+==========================================================================================
+STEP 2 -- 5-year FCFF projection (growth fading toward terminal growth)
+==========================================================================================
+  Year 1: growth 18% -> FCFF = INR 76.70 crore
+  Year 2: growth 15% -> FCFF = INR 88.20 crore
+  Year 3: growth 12% -> FCFF = INR 98.79 crore
+  Year 4: growth 9% -> FCFF = INR 107.68 crore
+  Year 5: growth 6% -> FCFF = INR 114.14 crore
+
+==========================================================================================
+STEP 3 & 4 -- Cost of equity (CAPM) and WACC
+==========================================================================================
+Beta selected (PAYFIN): 1.35
+Risk-free rate: 7.00%  |  Market return: 13.00%
+Cost of equity = Rf + beta*(Rm-Rf) = 7.00% + 1.35*(13.00%-7.00%) = 15.1000%
+Pre-tax cost of debt: 9.00%  |  Tax rate: 25%  |  After-tax cost of debt: 6.7500%
+Equity weight: 70%  |  Debt weight: 30%
+WACC = 70%*15.1000% + 30%*6.7500% = 12.5950%
+
+==========================================================================================
+STEP 5 -- Terminal growth constraint check
+==========================================================================================
+Base-case WACC: 12.5950%  |  Terminal growth: 5.00%  |  Spread: 7.5950%
+Terminal growth >= 3pp below base WACC: True (spread 7.60% >= 3%)
+Worst-case WACC - terminal growth spread: 5.60%
+Terminal growth constraint satisfied (worst-case spread >= 1pp): True
+
+==========================================================================================
+STEP 6 -- DCF valuation (base case)
+==========================================================================================
+  PV of Year 1 FCFF: INR 68.12 crore
+  PV of Year 2 FCFF: INR 69.58 crore
+  PV of Year 3 FCFF: INR 69.21 crore
+  PV of Year 4 FCFF: INR 67.00 crore
+  PV of Year 5 FCFF: INR 63.07 crore
+Sum of PV(FCFF, years 1-5): INR 336.97 crore
+Terminal value (growing perpetuity): INR 1577.99 crore
+PV of terminal value: INR 871.99 crore
+Enterprise value = PV(FCFFs) + PV(TV) = INR 1208.96 crore
+
+==========================================================================================
+STEP 7 -- 3x3 sensitivity table (WACC x terminal growth, +/- 1pp)
+==========================================================================================
+WACC \ Growth           4.0%        5.0%        6.0%
+11.60%                1249.1      1396.0      1595.5
+12.60%                1100.2      1209.0      1350.7
+13.60%                 982.4      1065.5      1170.5
+
+(All values are Enterprise Value in INR crore)
+All 9 sensitivity cells satisfy WACC > terminal growth: True
+
+==========================================================================================
+STEP 8 -- EV/EBITDA cross-check
+==========================================================================================
+Illustrative EBITDA (EBIT + D&A): INR 140.0 crore
+Illustrative EV/EBITDA multiple: 8.0x
+EV/EBITDA-implied enterprise value: INR 1120.00 crore
+DCF enterprise value: INR 1208.96 crore
+Difference (DCF vs multiple): +7.9%
